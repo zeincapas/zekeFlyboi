@@ -1,0 +1,6 @@
+{
+    "port": "COM47",
+    "board": "arduino:avr:mega",
+    "configuration": "cpu=atmega2560",
+    "sketch": "drone.ino"
+}
