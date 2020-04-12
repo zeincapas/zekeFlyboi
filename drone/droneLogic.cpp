@@ -20,48 +20,48 @@ const static int HOVER_THRUST = 100;
 
 float angles[3];  // yaw pitch roll
 
-double currentPitch, ctrlOutPitch, setPitch, currentRoll, ctrlOutRoll, setRoll;
+double currYaw, outputYaw, setYaw, currPitch, outputPitch, setPitch, currRoll, outputRoll, setRoll;
 
-
-
-/*******************************************************************************/
-setPitch = 0;       //At this stage, we are only testing hover mode.
-setRoll = 0;
-/*******************************************************************************/
-
-
-// PID thrust(&currentThrust, &ouputThrust, &setThrust, Kp_Thrust, Ki_Thrust, Kd_Thrust, REVERSE);
-// PID yaw(&currentYaw, &outputYaw, &setYaw, Kp_Yaw, Ki_Yaw, Kd_Yaw, REVERSE);
-PID pitch(&currentPitch, &outputPitch, &setPitch, pitchGain[0], pitchGain[1], pitchGain[2], REVERSE);
-PID roll(&currentRoll, &outputRoll, &setRoll, rollGain[0], rollGain[1], rollGain[2], REVERSE);
+// PID thrust(&currThrust, &ouputThrust, &setThrust, Kp_Thrust, Ki_Thrust, Kd_Thrust, REVERSE);
+// PID yaw(&currYaw, &outputYaw, &setYaw, Kp_Yaw, Ki_Yaw, Kd_Yaw, REVERSE);
+PID pitchPID(&currPitch, &outputPitch, &setPitch, pitchGain[0], pitchGain[1], pitchGain[2], REVERSE);
+PID rollPID(&currRoll, &outputRoll, &setRoll, rollGain[0], rollGain[1], rollGain[2], REVERSE);
 FreeSixIMU sixDOF = FreeSixIMU();
 BLDC motorFL(2);
 BLDC motorFR(3);
 BLDC motorBL(4);
 BLDC motorBR(5);
 
-void Drone::init() {
+/*******************************************************************************/
+setPitch = 0;       //At this stage, we are only testing hover mode.
+setRoll = 0;
+/*******************************************************************************/
+
+void Drone::init() 
+{
     Serial.begin(9600);
     Wire.begin();
     // thrust.SetOutputLimits(-MAX_THRUST, MAX_THRUST);
     // yaw.SetOutputLimits(-MAX_YAW, MAX_YAW);
-    pitch.SetOutputLimits(-MAX_PITCH, MAX_PITCH);
-    roll.SetOutputLimits(-MAX_ROLL, MAX_ROLL);
+    pitchPID.SetOutputLimits(-MAX_PITCH, MAX_PITCH);
+    rollPID.SetOutputLimits(-MAX_ROLL, MAX_ROLL);
     delay(10);
     sixDOF.init();
     delay(10);
 }
 
-void Drone::compute() {
+void Drone::compute() 
+{
     sixDOF.getEuler(angles);
-    currentPitch = angles[1];
-    currentRoll = angles[2];
-    pitch.compute();
-    roll.compute();
+    currPitch = angles[1];
+    currRoll = angles[2];
+    pitchPID.Compute();
+    rollPID.Compute();
 }
 
-void Drone::pitchMotorSet() {
-    
+void Drone::pitchMotorSet(double* outputPitch) 
+{
+    ;
 }
 
 

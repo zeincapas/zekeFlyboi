@@ -5,10 +5,12 @@
 
 Servo motor;
 
-void BLDC::init() {
+void BLDC::init() 
+{
     motor.attach(motorPin, 1000, 2000);
 }
 
-void BLDC::setSpeed(int32_t* speed) {
-    motor.write(*speed);
+void BLDC::setSpeed(int32_t speed) 
+{
+    motor.write(speed);
 }
