@@ -30,18 +30,18 @@ float* pPitchAcc = &rawPitchAcc;
 float* pRollAcc = &rawRollAcc;
 
 float pitchAccuracyDeg, rollAccuracyDeg, pitchDeg, rollDeg;
+float yawOffset, pitchOffset, rollOffset;
 int statusIMU;
 
-float henlo = 0;
 
 const float pi = 3.14159265359;
-const float dt = 0.0014; 
+const float dt = 0.0015; 
 const int MAX_PITCH = 180;
 const int MAX_ROLL = 180;
 const int MAX_YAW = 180;
 const int HOVER_THRUST = 100;
 const int FORCE_MAG_LOW_THRESH = 4.9;
-const int FORCE_MAG_HIGH_THRESH = 9.8;
+const int FORCE_MAG_HIGH_THRESH = 18.6;
 
 // PID thrust(&currThrust, &ouputThrust, &setThrust, Kp_Thrust, Ki_Thrust, Kd_Thrust, REVERSE);
 PID yawPID(&(yPtr->curr), &(yPtr->out), &(yPtr->set), yPtr->Kp, yPtr->Ki, yPtr->Kd, REVERSE);
@@ -76,7 +76,6 @@ void Drone::init()
         Serial.println(statusIMU);
         while(1) {}
     }
-
 }
 
 //This function updates the RAW values of the data read from the IMU.
@@ -94,21 +93,23 @@ void Drone::readSensorVal()
 void Drone::complementaryFilter() 
 {
     //Integrate the gyroscope data and then translate them to degrees.
+    //PITCH AND RO CURRENTLY BROKEN, GETS AFFECTED BY TILT IN ALL DIRECTION.
     
-    henlo += ((*pPitchGyro * dt)) * (180/pi);
-    // rollDeg = (rPtr->curr + (*pRollGyro * dt)) * (180/pi);
-    Serial.println(henlo);
-    // float forceMagnitude = abs(*pZAcc) + abs(*pPitchAcc) + abs(*pRollAcc);
-    // if ((forceMagnitude > FORCE_MAG_LOW_THRESH) && (forceMagnitude < FORCE_MAG_HIGH_THRESH))
-    // {   
-    //     //Find pitch angle in degrees.
-    //     pitchAccuracyDeg = atan2(*pPitchAcc, *pZAcc) * (180/pi);
-    //     pPtr->curr = (0.98 * pitchDeg) + (0.02 * (pitchAccuracyDeg));
+    pPtr->curr += (*pPitchGyro * dt) * (180/pi);
+    rPtr->curr += (*pRollGyro * dt) * (180/pi);
+    float forceMagnitude = abs(*pZAcc) + abs(*pPitchAcc) + abs(*pRollAcc);
+    if ((forceMagnitude > FORCE_MAG_LOW_THRESH) && (forceMagnitude < FORCE_MAG_HIGH_THRESH))
+    {   
+        //Find pitch angle in degrees.
+        pitchAccuracyDeg = atan2f(*pPitchAcc, *pZAcc) * (180/pi);
+        pPtr->curr = (0.98 * pPtr->curr) + (0.02 * (pitchAccuracyDeg));
+        Serial.print("Pitch Degree: "); Serial.println(pPtr->curr);
 
-    //     //Find roll angle in degrees.
-    //     rollAccuracyDeg = atan2(*pRollAcc, *pZAcc) * (180/pi);
-    //     rPtr->curr = (0.98 * rollDeg) + (0.02 * (rollAccuracyDeg));
-    // }
+        //Find roll angle in degrees.
+        rollAccuracyDeg = atan2f(*pRollAcc, *pZAcc) * (180/pi);
+        rPtr->curr = (0.98 * rPtr->curr) + (0.02 * (rollAccuracyDeg));
+        // Serial.print("Roll Degree: "); Serial.println(rPtr->curr);
+    }
     
 }
 
@@ -117,6 +118,4 @@ void Drone::printData()
     Serial.print("Pitch Angle: "); Serial.println(pPtr->curr, 6);
     Serial.print("Roll Angle: "); Serial.println(rPtr->curr, 6);
 }
-
-
 
