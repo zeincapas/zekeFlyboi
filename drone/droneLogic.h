@@ -1,47 +1,22 @@
 #ifndef DRONELOGIC_H_
 #define DRONELOGIC_H_
 
-struct Yaw
+struct SensorData
 {
-    double curr;
-    double out;
-    double set;
-    double Kp;
-    double Ki;
-    double Kd;            
-};
-
-struct Roll 
-{
-    double curr;
-    double out;
-    double set;
-    double Kp;
-    double Ki;
-    double Kd;
-};
-
-struct Pitch
-{
-    double curr;
-    double out;
-    double set;
-    double Kp;
-    double Ki;
-    double Kd;
+    float rawAccel[3];
+    float rawGyro[3];          
 };
 
 class Drone 
 {
     private:
-        double rawYaw, rawPitch, rawRoll;
 
     public:
         // void yawMOtorSet(ctrlOutYaw);
         // void pitchMotorSet(double*);
         // void rollMotorSet(double*);
-        void complementaryFilter(void);
         void readSensorVal(void);
+        void updateAHRS(void);
         // void thrustMotorSet(ctrlOutThrust);
 
         void init(void);

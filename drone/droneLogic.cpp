@@ -7,35 +7,16 @@
 #include "PID_v1.h"
 #include "droneLogic.h"
 #include "motor.h"
+#include "MadgwickAHRS.h"
 #include "MPU9250.h"
 
 //Struct pointer instantiation and initializations. Store operation values here.
-struct Yaw yawData;
-struct Pitch pitchData;
-struct Roll rollData;
-Yaw* yPtr = &yawData;
-Pitch* pPtr = &pitchData;
-Roll* rPtr = &rollData;
+struct SensorData sensor;
+SensorData* dataPtr = &sensor;
 
-//Raw gyroscope values must be stored here. We are using pointers.
-float rawYawGyro, rawPitchGyro, rawRollGyro;
-float* pYawGyro = &rawYawGyro;
-float* pPitchGyro = &rawPitchGyro;
-float* pRollGyro = &rawRollGyro;
-
-//Raw acceleration values must be stored here. We are using pointers.
-float rawZAcc, rawPitchAcc, rawRollAcc;
-float* pZAcc = &rawZAcc;
-float* pPitchAcc = &rawPitchAcc;
-float* pRollAcc = &rawRollAcc;
-
-float pitchAccuracyDeg, rollAccuracyDeg, pitchDeg, rollDeg;
-float yawOffset, pitchOffset, rollOffset;
 int statusIMU;
+float roll, pitch;
 
-
-const float pi = 3.14159265359;
-const float dt = 0.0015; 
 const int MAX_PITCH = 180;
 const int MAX_ROLL = 180;
 const int MAX_YAW = 180;
@@ -43,11 +24,8 @@ const int HOVER_THRUST = 100;
 const int FORCE_MAG_LOW_THRESH = 4.9;
 const int FORCE_MAG_HIGH_THRESH = 18.6;
 
-// PID thrust(&currThrust, &ouputThrust, &setThrust, Kp_Thrust, Ki_Thrust, Kd_Thrust, REVERSE);
-PID yawPID(&(yPtr->curr), &(yPtr->out), &(yPtr->set), yPtr->Kp, yPtr->Ki, yPtr->Kd, REVERSE);
-PID pitchPID(&(pPtr->curr), &(pPtr->out), &(pPtr->set), pPtr->Kp, pPtr->Ki, pPtr->Kd, REVERSE);
-PID rollPID(&(rPtr->curr), &(rPtr->out), &(rPtr->set), rPtr->Kp, rPtr->Ki, rPtr->Kd, REVERSE);
 MPU9250 IMU(Wire, 0x68);
+Madgwick Filter;
 BLDC motorFL(2);
 BLDC motorFR(3);
 BLDC motorBL(4);
@@ -63,10 +41,6 @@ void Drone::init()
     Serial.begin(115200);
     while(!Serial) {}
     // thrust.SetOutputLimits(-MAX_THRUST, MAX_THRUST);
-    yawPID.SetOutputLimits(-MAX_YAW, MAX_YAW);
-    pitchPID.SetOutputLimits(-MAX_PITCH, MAX_PITCH);
-    rollPID.SetOutputLimits(-MAX_ROLL, MAX_ROLL);
-
     IMU.begin();
     if (statusIMU < 0)
     {
@@ -76,46 +50,36 @@ void Drone::init()
         Serial.println(statusIMU);
         while(1) {}
     }
+    Filter.begin(10); //10Khz since the default sample rate of the MPU is 1Khz
 }
 
 //This function updates the RAW values of the data read from the IMU.
 void Drone::readSensorVal() 
 {
     IMU.readSensor();
-    *pYawGyro = IMU.getGyroZ_rads(); //YAW: must be integrated to get proper angle 
-    *pPitchGyro = IMU.getGyroY_rads(); //PITCH: must be integrated to get proper angle
-    *pRollGyro = IMU.getGyroX_rads(); //ROLL: must be integrated to get proper angle
-    *pZAcc = IMU.getAccelZ_mss(); //Acceleration vector in the Z direction (must add up to 9.8 when stationary)
-    *pPitchAcc = IMU.getAccelX_mss(); //Acceleration in X direction
-    *pRollAcc = IMU.getAccelY_mss(); //Acceleration in Y direction
+    
+    dataPtr->rawGyro[0] = IMU.getGyroX_rads(); //ROLL: must be integrated to get proper angle
+    dataPtr->rawGyro[1] = IMU.getGyroY_rads(); //PITCH: must be integrated to get proper angle
+    dataPtr->rawGyro[2] = IMU.getGyroZ_rads(); //YAW: must be integrated to get proper angle 
+    
+    dataPtr->rawAccel[0] = IMU.getAccelX_mss(); //Acceleration in X direction
+    dataPtr->rawAccel[1] = IMU.getAccelY_mss(); //Acceleration in Y direction
+    dataPtr->rawAccel[2] = -IMU.getAccelZ_mss(); //Acceleration vector in the Z direction (must add up to 9.8 when stationary)
 }
 
-void Drone::complementaryFilter() 
+void Drone::updateAHRS()
 {
-    //Integrate the gyroscope data and then translate them to degrees.
-    //PITCH AND RO CURRENTLY BROKEN, GETS AFFECTED BY TILT IN ALL DIRECTION.
+    Filter.updateIMU(dataPtr->rawGyro[0], dataPtr->rawGyro[1], dataPtr->rawGyro[2],
+                     dataPtr->rawAccel[0], dataPtr->rawAccel[1], dataPtr->rawAccel[2]);
     
-    pPtr->curr += (*pPitchGyro * dt) * (180/pi);
-    rPtr->curr += (*pRollGyro * dt) * (180/pi);
-    float forceMagnitude = abs(*pZAcc) + abs(*pPitchAcc) + abs(*pRollAcc);
-    if ((forceMagnitude > FORCE_MAG_LOW_THRESH) && (forceMagnitude < FORCE_MAG_HIGH_THRESH))
-    {   
-        //Find pitch angle in degrees.
-        pitchAccuracyDeg = atan2f(*pPitchAcc, *pZAcc) * (180/pi);
-        pPtr->curr = (0.98 * pPtr->curr) + (0.02 * (pitchAccuracyDeg));
-        Serial.print("Pitch Degree: "); Serial.println(pPtr->curr);
-
-        //Find roll angle in degrees.
-        rollAccuracyDeg = atan2f(*pRollAcc, *pZAcc) * (180/pi);
-        rPtr->curr = (0.98 * rPtr->curr) + (0.02 * (rollAccuracyDeg));
-        // Serial.print("Roll Degree: "); Serial.println(rPtr->curr);
-    }
+    pitch = Filter.getPitch();
+    roll = Filter.getRoll();
     
+    // Serial.print("Pitch: "); Serial.println(pitch);
+    // Serial.print("Roll: "); Serial.println(roll);
 }
 
 void Drone::printData()
 {
-    Serial.print("Pitch Angle: "); Serial.println(pPtr->curr, 6);
-    Serial.print("Roll Angle: "); Serial.println(rPtr->curr, 6);
 }
 

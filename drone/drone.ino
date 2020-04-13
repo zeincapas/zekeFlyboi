@@ -32,6 +32,6 @@ void setup()
 void loop()
 {
     drone.readSensorVal();
-    drone.complementaryFilter();
+    drone.updateAHRS();
     // drone.printData();
 }
