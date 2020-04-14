@@ -50,7 +50,7 @@ void Drone::init()
         Serial.println(statusIMU);
         while(1) {}
     }
-    Filter.begin(10); //10Khz since the default sample rate of the MPU is 1Khz
+    Filter.begin(10); //100Hz
 }
 
 //This function updates the RAW values of the data read from the IMU.
@@ -65,18 +65,23 @@ void Drone::readSensorVal()
     dataPtr->rawAccel[0] = IMU.getAccelX_mss(); //Acceleration in X direction
     dataPtr->rawAccel[1] = IMU.getAccelY_mss(); //Acceleration in Y direction
     dataPtr->rawAccel[2] = -IMU.getAccelZ_mss(); //Acceleration vector in the Z direction (must add up to 9.8 when stationary)
+
+    dataPtr->rawMag[0] = IMU.getMagX_uT();
+    dataPtr->rawMag[1] = IMU.getMagY_uT();
+    dataPtr->rawMag[2] = IMU.getMagZ_uT();
 }
 
 void Drone::updateAHRS()
 {
-    Filter.updateIMU(dataPtr->rawGyro[0], dataPtr->rawGyro[1], dataPtr->rawGyro[2],
-                     dataPtr->rawAccel[0], dataPtr->rawAccel[1], dataPtr->rawAccel[2]);
+    Filter.update(dataPtr->rawGyro[0], dataPtr->rawGyro[1], dataPtr->rawGyro[2],
+                     dataPtr->rawAccel[0], dataPtr->rawAccel[1], dataPtr->rawAccel[2],
+                     dataPtr->rawMag[0], dataPtr->rawMag[1], dataPtr->rawMag[2]);
     
     pitch = Filter.getPitch();
     roll = Filter.getRoll();
     
     // Serial.print("Pitch: "); Serial.println(pitch);
-    // Serial.print("Roll: "); Serial.println(roll);
+    Serial.print("Roll: "); Serial.println(roll);
 }
 
 void Drone::printData()

@@ -4,7 +4,8 @@
 struct SensorData
 {
     float rawAccel[3];
-    float rawGyro[3];          
+    float rawGyro[3];
+    float rawMag[3];       
 };
 
 class Drone 
